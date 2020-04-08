@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"os/exec"
 
 	"github.com/gammazero/workerpool"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
@@ -32,6 +33,7 @@ import (
 type Cleaner struct {
 	auther      gcrauthn.Authenticator
 	concurrency int
+	inuse       map
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
@@ -40,6 +42,7 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 	return &Cleaner{
 		auther:      auther,
 		concurrency: c,
+		inuse:       make(map[string]struct{})
 	}, nil
 }
 
@@ -138,5 +141,25 @@ func (c *Cleaner) deleteOne(ref string) error {
 // shouldDelete returns true if the manifest has no tags and is before the
 // requested time.
 func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allow_tag bool) bool {
-	return (allow_tag || len(m.Tags) == 0) && m.Uploaded.UTC().Before(since)
+	fmt.Printf("%+v\n", m)
+	// return (allow_tag || len(m.Tags) == 0) && m.Uploaded.UTC().Before(since)
+	return false
+}
+
+//
+func (c *Cleaner) fetchExisting() error {
+	out, err := exec.Command("for ctx in $(kubectl config get-contexts -o name)
+	do
+	  { kubectl --context $ctx get cj --all-namespaces -o jsonpath=\"{..image}\" & kubectl --context $ctx get job --all-namespaces -o jsonpath=\"{..image}\" & kubectl --context $ctx get po --all-namespaces -o jsonpath=\"{..image}\"; }
+	done |  tr -s '[[:space:]]' ',' | sort |  uniq;").Output()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve in-use images across clusters:\n%s", err)
+	}
+	else {
+		tags := strings.SplitAfter(out, ",")
+		for _, tag := range tags {
+			c.inuse[tag] = exists
+    	}
+    	return nil
+	}
 }
