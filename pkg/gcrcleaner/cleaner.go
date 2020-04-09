@@ -42,12 +42,12 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 	return &Cleaner{
 		auther:      auther,
 		concurrency: c,
-		inuse:       make(map[string]struct{})
+		inuse:       fetchExisting()
 	}, nil
 }
 
 // Clean deletes old images from GCR that are untagged and older than "since".
-func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]string, error) {
+func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -67,7 +67,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]stri
 	var errsLock sync.RWMutex
 
 	for k, m := range tags.Manifests {
-		if c.shouldDelete(m, since, allow_tagged) {
+		if c.shouldDelete(m) {
 			// Deletes all tags before deleting the image
 			for _, tag := range m.Tags {
 				tagged := repo + ":" + tag
@@ -140,26 +140,28 @@ func (c *Cleaner) deleteOne(ref string) error {
 
 // shouldDelete returns true if the manifest has no tags and is before the
 // requested time.
-func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allow_tag bool) bool {
+func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo) bool {
 	fmt.Printf("%+v\n", m)
 	// return (allow_tag || len(m.Tags) == 0) && m.Uploaded.UTC().Before(since)
 	return false
 }
 
 //
-func (c *Cleaner) fetchExisting() error {
+func fetchExisting() map {
+    existing = make(map[string]struct{})
+
 	out, err := exec.Command("for ctx in $(kubectl config get-contexts -o name)
 	do
 	  { kubectl --context $ctx get cj --all-namespaces -o jsonpath=\"{..image}\" & kubectl --context $ctx get job --all-namespaces -o jsonpath=\"{..image}\" & kubectl --context $ctx get po --all-namespaces -o jsonpath=\"{..image}\"; }
 	done |  tr -s '[[:space:]]' ',' | sort |  uniq;").Output()
 	if err != nil {
-		return fmt.Errorf("failed to retrieve in-use images across clusters:\n%s", err)
+		panic("failed to retrieve in-use images across clusters:\n%s", err)
 	}
 	else {
 		tags := strings.SplitAfter(out, ",")
 		for _, tag := range tags {
-			c.inuse[tag] = exists
+			existing[tag] = exists
     	}
-    	return nil
+    	return existing
 	}
 }
