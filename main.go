@@ -25,7 +25,7 @@ import (
 
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/farmersedgeinc/gcr-cleaner/pkg/gcrcleaner"
+	"./pkg/gcrcleaner"
 )
 
 func main() {
