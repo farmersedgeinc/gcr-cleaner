@@ -1,4 +1,4 @@
-module github.com/sethvargo/gcr-cleaner
+module github.com/farmersedgeinc/gcr-cleaner
 
 go 1.13
 
