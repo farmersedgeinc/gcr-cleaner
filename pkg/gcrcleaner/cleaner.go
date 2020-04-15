@@ -17,6 +17,7 @@ package gcrcleaner
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"os/exec"
@@ -186,12 +187,12 @@ func fetchExisting() map[string]struct{} {
 	  { kubectl --context $ctx get cj --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get job --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get po --all-namespaces -o jsonpath="{..image}"; }
 	done |  tr -s '[[:space:]]' ',' | sort |  uniq;`).Output()
 	if err != nil {
-		panic(fmt.Sprintf("failed to retrieve in-use images across clusters:\n%s", err.Error()))
+		log.Fatalf(fmt.Sprintf("failed to retrieve in-use images across clusters:\n%s", err.Error()))
 	} else {
 		tags := strings.SplitAfter(string(out), ",")
 		for _, tag := range tags {
 			existing[tag] = struct{}{}
 		}
-		return existing
 	}
+	return existing
 }
