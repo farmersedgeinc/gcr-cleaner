@@ -181,7 +181,7 @@ func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[s
 func fetchExisting() map[string]struct{} {
 	existing := make(map[string]struct{})
 
-	out, err := exec.Command(`for ctx in $(kubectl config get-contexts -o name)
+	out, err := exec.Command("/bin/bash", "-c", `for ctx in $(kubectl config get-contexts -o name)
 	do
 	  { kubectl --context $ctx get cj --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get job --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get po --all-namespaces -o jsonpath="{..image}"; }
 	done |  tr -s '[[:space:]]' ',' | sort |  uniq;`).Output()
