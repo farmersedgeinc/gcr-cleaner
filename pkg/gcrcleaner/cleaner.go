@@ -52,7 +52,7 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 	return &Cleaner{
 		auther:      auther,
 		concurrency: c,
-		repoExcept:  repoExcept
+		repoExcept:  repoExcept,
 		tagExcept:   tagExcept,
 	}, nil
 }
