@@ -112,7 +112,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 			if c.shouldDelete(name, m, keeping) {
 				// Deletes all tags before deleting the image
 				for _, tag := range m.Tags {
-					tagged := repo + ":" + tag
+					tagged := name + ":" + tag
 					c.deleteOne(tagged)
 				}
 				ref := repo + "@" + k
