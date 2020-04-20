@@ -84,7 +84,7 @@ func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 		var errsLock sync.RWMutex
 
 		var keeping = c.inuse
-		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, keep); t-- {
+		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, 0); t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
 			keeping[tagName] = struct{}{}
 			fmt.Printf("To Keep: %+s\n", tagName)
@@ -171,12 +171,12 @@ func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[s
 			name := fmt.Sprintf("%s:%s", n, t)
 			if _, ok := keeping[name]; ok {
 				// cannot delete manifest since it's used by images being kept
-				fmt.Printf("kept: %+v\n", m)
+				fmt.Printf("%s kept: %+v\n", n, m)
 				return false
 			}
 		}
 	}
-	fmt.Printf("deleted: %+v\n", m)
+	fmt.Printf("%s deleted: %+v\n", n, m)
 	return true
 }
 
