@@ -169,7 +169,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ref string) error {
-	fmt.Printf("TESTING: %s", tagged)
+	fmt.Printf("TESTING: %s", ref)
 
 	name, err := gcrname.ParseReference(ref)
 	if err != nil {
