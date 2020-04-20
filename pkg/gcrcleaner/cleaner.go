@@ -87,9 +87,9 @@ func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, keep); t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
 			keeping[tagName] = struct{}{}
+			fmt.Printf("To Keep: %+s\n", tagName)
 		}
 
-		fmt.Printf("Keeping: %v\n", keeping)
 		for k, m := range tags.Manifests {
 			if c.shouldDelete(name, m, keeping) {
 				// Deletes all tags before deleting the image
