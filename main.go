@@ -22,7 +22,6 @@ import (
 	"os"
 	// "os/signal"
 	"runtime"
-	"strconv"
 	// "time"
 
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
@@ -94,9 +93,7 @@ import (
 // }
 
 func main() {
-	keep, err := strconv.Atoi(os.Getenv("CLEANER_KEEP_AMOUNT"))
-	repo := os.Getenv("GCR_BASE_REPO")
-	jsonPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	jsonPath := getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	jsonKey, err := ioutil.ReadFile(jsonPath)
 	auther := gcrgoogle.NewJSONKeyAuthenticator(string(jsonKey))
 	concurrency := runtime.NumCPU()
@@ -105,8 +102,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create cleaner: %s", err)
 	}
-
-	log.Printf("deleting refs for %s, keeping %d tags per image\n", repo, keep)
 
 	deleted, err := cleaner.Clean(repo, keep)
 	if err != nil {

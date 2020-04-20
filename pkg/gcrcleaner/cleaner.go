@@ -15,9 +15,12 @@
 package gcrcleaner
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"os/exec"
@@ -29,26 +32,33 @@ import (
 	// gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
+var keep, _ = strconv.Atoi(getenv("CLEANER_KEEP_AMOUNT", "5"))
+var	repo = getenv("GCR_BASE_REPO", "")
+var	exFile = getenv("CLEANER_EXCEPTION_FILE", "/config/exceptions.json")
+var exists = struct{}{} // for implementing set-like functionality
+
 // Cleaner is a gcr cleaner.
 type Cleaner struct {
 	auther      gcrauthn.Authenticator
 	concurrency int
-	inuse       map[string]struct{}
+	repoExcept  map[string]struct{}
+	tagExcept   map[string]struct{}
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
 func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
-	existing := fetchExisting()
+	repoExcept, tagExcept := fetchExisting()
 	return &Cleaner{
 		auther:      auther,
 		concurrency: c,
-		inuse:       existing,
+		repoExcept:  repoExcept
+		tagExcept:   tagExcept,
 	}, nil
 }
 
 // Clean deletes old images from GCR that are untagged and older than "since".
-func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
+func (c *Cleaner) Clean() ([]string, error) {
 	var deleted []string
 	var errStrings []string
 
@@ -61,6 +71,8 @@ func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list child repos %s: %w", repo, err)
 	}
+
+	log.Printf("deleting refs for %s, keeping %d tags per image\n", repo, keep)
 
 	for _, r := range(repos.Children) {
 		name := fmt.Sprintf("%s/%s", repo, r)
@@ -86,7 +98,7 @@ func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 		var keeping = c.inuse
 		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, 0); t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
-			keeping[tagName] = struct{}{}
+			keeping[tagName] = exists
 			fmt.Printf("To Keep: %+s\n", tagName)
 		}
 
@@ -181,8 +193,9 @@ func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[s
 }
 
 // fetches in-use tags across all clusters in kube config
-func fetchExisting() map[string]struct{} {
-	existing := make(map[string]struct{})
+func fetchExceptions() (map[string]struct{}, map[string]struct{}) {
+	repoExceptions := make(map[string]struct{})
+	tagExceptions := make(map[string]struct{})
 
 	out, err := exec.Command("/bin/bash", "-c", `for ctx in $(kubectl config get-contexts -o name)
 	do
@@ -193,15 +206,38 @@ func fetchExisting() map[string]struct{} {
 	} else {
 		tags := strings.SplitAfter(string(out), ",")
 		for _, tag := range tags {
-			existing[tag] = struct{}{}
+			tagExceptions[tag] = exists
 		}
 	}
-	return existing
+
+	exFile, _ := ioutil.ReadFile(p)
+	result := make(map[string][]string)
+	json.Unmarshal([]byte(exfile), &result)
+	for _, r := range(result["repo"]) {
+		name := fmt.Sprintf("%s/%s", repo, r)
+		repoExeptions[name] = exists
+	}
+	for _, t := range(result["tag"]) {
+		name := fmt.Sprintf("%s/%s", repo, t)
+		repoExeptions[name] = exists
+	}
+
+	return repoExceptions, tagExceptions
 }
 
+// for repos with size less than or equal to keep amount
 func max(x, y int) int {
  if x > y {
    return x
  }
  return y
+}
+
+// get environment variables with default
+func getenv(key, fallback string) string {
+    value := os.Getenv(key)
+    if len(value) == 0 {
+        return fallback
+    }
+    return value
 }
