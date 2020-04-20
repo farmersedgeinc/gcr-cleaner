@@ -113,7 +113,6 @@ func (c *Cleaner) Clean() ([]string, error) {
 				// Deletes all tags before deleting the image
 				for _, tag := range m.Tags {
 					tagged := name + ":" + tag
-					fmt.Printf("TESTING: %s", tagged)
 					c.deleteOne(tagged)
 				}
 				ref := repo + "@" + k
@@ -170,6 +169,8 @@ func (c *Cleaner) Clean() ([]string, error) {
 
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ref string) error {
+	fmt.Printf("TESTING: %s", tagged)
+
 	name, err := gcrname.ParseReference(ref)
 	if err != nil {
 		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
