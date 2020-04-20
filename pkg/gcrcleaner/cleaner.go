@@ -98,7 +98,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 		var errsLock sync.RWMutex
 
 		var keeping = c.tagExcept
-		control = max(len(tags.Tags)-keep, 0)
+		control := max(len(tags.Tags)-keep, 0)
 		if _, ok := c.repoExcept[name]; ok {
 			fmt.Printf("Only deleting untagged manifests for exception repo: %s\n", name)
 			control = 0
