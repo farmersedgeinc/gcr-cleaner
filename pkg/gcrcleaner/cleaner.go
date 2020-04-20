@@ -115,7 +115,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 					tagged := name + ":" + tag
 					c.deleteOne(tagged)
 				}
-				ref := repo + "@" + k
+				ref := name + "@" + k
 				pool.Submit(func() {
 					// Do not process if previous invocations failed. This prevents a large
 					// build-up of failed requests and rate limit exceeding (e.g. bad auth).
@@ -169,8 +169,6 @@ func (c *Cleaner) Clean() ([]string, error) {
 
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ref string) error {
-	fmt.Printf("TESTING: %s", ref)
-
 	name, err := gcrname.ParseReference(ref)
 	if err != nil {
 		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
