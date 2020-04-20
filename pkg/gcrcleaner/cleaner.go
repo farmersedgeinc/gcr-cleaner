@@ -169,17 +169,16 @@ func (c *Cleaner) Clean() ([]string, error) {
 
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ref string) error {
-	return nil // for testing only
-	// name, err := gcrname.ParseReference(ref)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to parse reference %s: %w", ref, err)
-	// }
+	name, err := gcrname.ParseReference(ref)
+	if err != nil {
+		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
+	}
 
-	// if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
-	// 	return fmt.Errorf("failed to delete %s: %w", name, err)
-	// }
+	if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
+		return fmt.Errorf("failed to delete %s: %w", name, err)
+	}
 
-	// return nil
+	return nil
 }
 
 // shouldDelete returns true if the manifest has no tags or isn't in use by images being kept
