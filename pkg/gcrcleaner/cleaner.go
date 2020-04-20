@@ -113,6 +113,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 				// Deletes all tags before deleting the image
 				for _, tag := range m.Tags {
 					tagged := name + ":" + tag
+					fmt.Printf("TESTING: %s", tagged)
 					c.deleteOne(tagged)
 				}
 				ref := repo + "@" + k
