@@ -51,6 +51,7 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 	var deleted []string
 	var errStrings []string
+	var refCount int = 0
 
 	gcrbase, err := gcrname.NewRepository(repo)
 	if err != nil {
@@ -84,7 +85,7 @@ func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 		var errsLock sync.RWMutex
 
 		var keeping = c.inuse
-		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, 0); t-- {
+		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, keep); t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
 			keeping[tagName] = struct{}{}
 		}
@@ -197,7 +198,7 @@ func fetchExisting() map[string]struct{} {
 	return existing
 }
 
-func max(x, y int64) int64 {
+func max(x, y int) int {
  if x > y {
    return x
  }
