@@ -79,7 +79,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 		name := fmt.Sprintf("%s/%s", repo, r)
 		if _, ok := c.repoExcept[name]; ok {
 			fmt.Printf("%s Skipping repo: %s\n", name)
-			return false
+			continue
 		}
 
 		gcrrepo, err := gcrname.NewRepository(name)
