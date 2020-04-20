@@ -106,7 +106,7 @@ func main() {
 		log.Fatalf("failed to create cleaner: %s", err)
 	}
 
-	log.Printf("deleting refs for %s, keeping %s tags per image\n", repo, keep)
+	log.Printf("deleting refs for %s, keeping %d tags per image\n", repo, keep)
 
 	deleted, err := cleaner.Clean(repo, keep)
 	if err != nil {

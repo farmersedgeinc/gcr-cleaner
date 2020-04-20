@@ -84,7 +84,7 @@ func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 		var errsLock sync.RWMutex
 
 		var keeping = c.inuse
-		for t := len(tags.Tags)-1; t >= len(tags.Tags)-keep; t-- {
+		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, 0); t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
 			keeping[tagName] = struct{}{}
 		}
@@ -195,4 +195,11 @@ func fetchExisting() map[string]struct{} {
 		}
 	}
 	return existing
+}
+
+func max(x, y int64) int64 {
+ if x > y {
+   return x
+ }
+ return y
 }
