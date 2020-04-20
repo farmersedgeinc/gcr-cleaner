@@ -89,6 +89,7 @@ func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 			keeping[tagName] = struct{}{}
 		}
 
+		fmt.Printf("Keeping: %v\n", keeping)
 		for k, m := range tags.Manifests {
 			if c.shouldDelete(name, m, keeping) {
 				// Deletes all tags before deleting the image
@@ -165,16 +166,17 @@ func (c *Cleaner) deleteOne(ref string) error {
 
 // shouldDelete returns true if the manifest has no tags or isn't in use by images being kept
 func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[string]struct{}) bool {
-	fmt.Printf("%+v\n", m)	
 	if len(m.Tags) > 0 {
 		for _, t := range(m.Tags) {
 			name := fmt.Sprintf("%s:%s", n, t)
 			if _, ok := keeping[name]; ok {
 				// cannot delete manifest since it's used by images being kept
+				fmt.Printf("kept: %+v\n", m)
 				return false
 			}
 		}
 	}
+	fmt.Printf("deleted: %+v\n", m)
 	return true
 }
 
