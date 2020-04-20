@@ -103,7 +103,7 @@ func main() {
 		log.Fatalf("failed to create cleaner: %s", err)
 	}
 
-	deleted, err := cleaner.Clean(repo, keep)
+	deleted, err := cleaner.Clean()
 	if err != nil {
 		log.Printf("failed to clean: %w", err)
 	}

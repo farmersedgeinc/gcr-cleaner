@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,7 +35,7 @@ import (
 
 var keep, _ = strconv.Atoi(getenv("CLEANER_KEEP_AMOUNT", "5"))
 var	repo = getenv("GCR_BASE_REPO", "")
-var	exFile = getenv("CLEANER_EXCEPTION_FILE", "/config/exceptions.json")
+var	exPath = getenv("CLEANER_EXCEPTION_FILE", "/config/exceptions.json")
 var exists = struct{}{} // for implementing set-like functionality
 
 // Cleaner is a gcr cleaner.
@@ -48,7 +49,7 @@ type Cleaner struct {
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
 func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
-	repoExcept, tagExcept := fetchExisting()
+	repoExcept, tagExcept := fetchExceptions()
 	return &Cleaner{
 		auther:      auther,
 		concurrency: c,
@@ -75,6 +76,8 @@ func (c *Cleaner) Clean() ([]string, error) {
 	log.Printf("deleting refs for %s, keeping %d tags per image\n", repo, keep)
 
 	for _, r := range(repos.Children) {
+
+
 		name := fmt.Sprintf("%s/%s", repo, r)
 		gcrrepo, err := gcrname.NewRepository(name)
 		if err != nil {
@@ -95,7 +98,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 		var errs = make(map[string]error)
 		var errsLock sync.RWMutex
 
-		var keeping = c.inuse
+		var keeping = c.tagExcept
 		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, 0); t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
 			keeping[tagName] = exists
@@ -210,16 +213,16 @@ func fetchExceptions() (map[string]struct{}, map[string]struct{}) {
 		}
 	}
 
-	exFile, _ := ioutil.ReadFile(p)
+	exFile, _ := ioutil.ReadFile(exPath)
 	result := make(map[string][]string)
-	json.Unmarshal([]byte(exfile), &result)
+	json.Unmarshal([]byte(exFile), &result)
 	for _, r := range(result["repo"]) {
 		name := fmt.Sprintf("%s/%s", repo, r)
-		repoExeptions[name] = exists
+		repoExceptions[name] = exists
 	}
 	for _, t := range(result["tag"]) {
 		name := fmt.Sprintf("%s/%s", repo, t)
-		repoExeptions[name] = exists
+		tagExceptions[name] = exists
 	}
 
 	return repoExceptions, tagExceptions
