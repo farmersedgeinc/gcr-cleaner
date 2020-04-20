@@ -124,7 +124,8 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 
 	log.Printf("deleting refs for %s, keeping %s tags per image\n", repo, keep)
 
-	deleted, err := s.cleaner.Clean(repo, keep)
+	// deleted, err := s.cleaner.Clean(repo, keep)
+	deleted, err := s.cleaner.Clean()
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
