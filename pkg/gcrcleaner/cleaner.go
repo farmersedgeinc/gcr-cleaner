@@ -77,10 +77,6 @@ func (c *Cleaner) Clean() ([]string, error) {
 
 	for _, r := range(repos.Children) {
 		name := fmt.Sprintf("%s/%s", repo, r)
-		if _, ok := c.repoExcept[name]; ok {
-			fmt.Printf("%s Skipping repo: %s\n", name)
-			continue
-		}
 
 		gcrrepo, err := gcrname.NewRepository(name)
 		if err != nil {
@@ -102,7 +98,12 @@ func (c *Cleaner) Clean() ([]string, error) {
 		var errsLock sync.RWMutex
 
 		var keeping = c.tagExcept
-		for t := len(tags.Tags)-1; t >= max(len(tags.Tags)-keep, 0); t-- {
+		control = max(len(tags.Tags)-keep), 0)
+		if _, ok := c.repoExcept[name]; ok {
+			fmt.Printf("Only deleting untagged manifests for exception repo: %s\n", name)
+			control = 0
+		}
+		for t := len(tags.Tags)-1; t >= control; t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
 			keeping[tagName] = exists
 			fmt.Printf("To Keep: %+s\n", tagName)
@@ -169,14 +170,14 @@ func (c *Cleaner) Clean() ([]string, error) {
 
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ref string) error {
-	name, err := gcrname.ParseReference(ref)
-	if err != nil {
-		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
-	}
+	// name, err := gcrname.ParseReference(ref)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to parse reference %s: %w", ref, err)
+	// }
 
-	if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
-		return fmt.Errorf("failed to delete %s: %w", name, err)
-	}
+	// if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
+	// 	return fmt.Errorf("failed to delete %s: %w", name, err)
+	// }
 
 	return nil
 }
