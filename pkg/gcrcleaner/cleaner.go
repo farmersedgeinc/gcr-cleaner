@@ -30,7 +30,7 @@ import (
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
-	// gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 var keep, _ = strconv.Atoi(getenv("CLEANER_KEEP_AMOUNT", "5"))
@@ -106,7 +106,6 @@ func (c *Cleaner) Clean() ([]string, error) {
 		for t := len(tags.Tags)-1; t >= control; t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
 			keeping[tagName] = exists
-			fmt.Printf("To Keep: %+s\n", tagName)
 		}
 
 		for k, m := range tags.Manifests {
@@ -170,14 +169,14 @@ func (c *Cleaner) Clean() ([]string, error) {
 
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ref string) error {
-	// name, err := gcrname.ParseReference(ref)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to parse reference %s: %w", ref, err)
-	// }
+	name, err := gcrname.ParseReference(ref)
+	if err != nil {
+		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
+	}
 
-	// if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
-	// 	return fmt.Errorf("failed to delete %s: %w", name, err)
-	// }
+	if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
+		return fmt.Errorf("failed to delete %s: %w", name, err)
+	}
 
 	return nil
 }
