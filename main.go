@@ -93,7 +93,7 @@ import (
 // }
 
 func main() {
-	jsonPath := getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	jsonPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	jsonKey, err := ioutil.ReadFile(jsonPath)
 	auther := gcrgoogle.NewJSONKeyAuthenticator(string(jsonKey))
 	concurrency := runtime.NumCPU()
@@ -108,5 +108,5 @@ func main() {
 		log.Printf("failed to clean: %w", err)
 	}
 
-	log.Printf("deleted %d refs for %s", len(deleted), repo)
+	log.Printf("deleted %d refs", len(deleted))
 }
