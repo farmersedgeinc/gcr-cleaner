@@ -76,9 +76,12 @@ func (c *Cleaner) Clean() ([]string, error) {
 	log.Printf("deleting refs for %s, keeping %d tags per image\n", repo, keep)
 
 	for _, r := range(repos.Children) {
-
-
 		name := fmt.Sprintf("%s/%s", repo, r)
+		if _, ok := c.repoExcept[name]; ok {
+			fmt.Printf("%s Skipping repo: %s\n", name)
+			return false
+		}
+
 		gcrrepo, err := gcrname.NewRepository(name)
 		if err != nil {
 			errStrings = append(errStrings, fmt.Sprintf("failed to get child repo %s: %w", repo, err.Error()))
