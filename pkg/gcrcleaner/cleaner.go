@@ -51,7 +51,6 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 func (c *Cleaner) Clean(repo string, keep int) ([]string, error) {
 	var deleted []string
 	var errStrings []string
-	var refCount int = 0
 
 	gcrbase, err := gcrname.NewRepository(repo)
 	if err != nil {
