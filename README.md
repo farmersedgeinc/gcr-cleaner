@@ -26,7 +26,7 @@ If the exceptions file specifies entire child repos those child repos will only 
 
 3. Create a kube config file using the JSON key you generated - this guide might be helpful https://ahmet.im/blog/authenticating-to-gke-without-gcloud/
 
-4. Create a docker config file with the same JSON file by generating the auth with this command
+4. Create a docker config file with the same JSON key by generating the auth with this command
    ```SH
    docker login -u _json_key --password-stdin https://gcr.io < account.json
    ```
@@ -48,19 +48,19 @@ If the exceptions file specifies entire child repos those child repos will only 
 5. Deploy the GCR Cleaner as a cronjob in your Kubernetes cluster. Proper functionality requires the following:
    - The JSON key file, the kube config file, the docker config file, and the exceptions json file must all be available on the pod.
      This can be achieved by mounting them as secrets, or mounting a volume that contains them
-   - These environment variables must be defined:
-      `KUBECONFIG`: The path to your kube config file
-      `DOCKER_CONFIG`: The path to your docker config file
-      `GOOGLE_APPLICATION_CREDENTIALS`: The path to your service account JSON key
-      `GCR_BASE_REPO`: The name of your GCR repo in the format `gcr.io/{project}`
-   - These environment variables are optional:
-      `CLEANER_EXCEPTION_FILE`: The path to the exceptions JSON file (default is `/config/exceptions.json`)
-      `CLEANER_KEEP_AMOUNT`: The minimum amount of tags in each child repo that must be kept (default is 5)
+   - These environment variables must be defined:<br/>
+      `KUBECONFIG`: The path to your kube config file<br/>
+      `DOCKER_CONFIG`: The path to your docker config file<br/>
+      `GOOGLE_APPLICATION_CREDENTIALS`: The path to your service account JSON key<br/>
+      `GCR_BASE_REPO`: The name of your GCR repo in the format `gcr.io/{project}`<br/>
+   - These environment variables are optional:<br/>
+      `CLEANER_EXCEPTION_FILE`: The path to the exceptions JSON file (default is `/config/exceptions.json`)<br/>
+      `CLEANER_KEEP_AMOUNT`: The minimum amount of tags in each child repo that must be kept (default is 5)<br/>
 
 ## License
 
 This library is licensed under Apache 2.0. Full license text is available in
-[LICENSE](https://github.com/sethvargo/gcr-cleaner/tree/master/LICENSE).
+[LICENSE](https://github.com/farmersedgeinc/gcr-cleaner/tree/master/LICENSE).
 
 [cloud-build]: https://cloud.google.com/build/
 [cloud-pubsub]: https://cloud.google.com/pubsub/
