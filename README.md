@@ -1,171 +1,61 @@
 # GCR Cleaner
 
+This project is a fork of https://github.com/sethvargo/gcr-cleaner, so massive thanks to them for making a great repo!
+
 GCR Cleaner deletes untagged images in Google Container Registry. This can help
 reduce costs and keep your container images list in order.
 
-GCR Cleaner is designed to be deployed as a [Cloud Run][cloud-run] service and
-invoked periodically via [Cloud Scheduler][cloud-scheduler].
+This version of GCR Cleaner is designed to be run as a cronjob in GKE Kubernetes environments
+and is intended for cleaning GCR repos with children. It uses an exceptions file as well as
+finds tags currently in use across multiple GKE clusters and filters those out of consideration
+for deletion.
 
-```text
-+-------------------+    +-------------+    +-------+
-|  Cloud Scheduler  | -> |  Cloud Run  | -> |  GCR  |
-+-------------------+    +-------------+    +-------+
-```
-
-GCR Cleaner is largely inspired by [ahmetb](https://twitter.com/ahmetb)'s
-[gcrgc.sh][gcrgc.sh], but it is written in Go and is designed to be run as a
-service.
-
+The deletion itself works by first querying all of the clusters in a provided kube config for all pod, cronjob, and job
+resources and checking which tags are being used by all of them. It then goes through all child repos of the provided
+base repo, keeps the last 5 tags (or however many you want) based on timestamp for each, then keeps additional tags
+if they are specified in the exceptions file. Everything else will be deleted, including untagged manifests.
+If the exceptions file specifies entire child repos those child repos will only have untagged manifests deleted and nothing else.
 
 ## Setup
 
-1. Install the [Cloud SDK][cloud-sdk] for your operating system. Alternatively,
-   you can run these commands from [Cloud Shell][cloud-shell], which has the SDK
-   and other popular tools pre-installed.
+1. Create a service account that has the `roles/storage.admin` (Storage Admin) role for the GCR bucket as well as
+   the `roles/container.viewer` (Kubernetes Engine Viewer) role for all of the projects that have GKE clusters you want to
+   filter based on
 
-1. Export your project ID as an environment variable. The rest of this setup
-   assumes this environment variable is set.
+2. Create a JSON key for the new service account
 
-   ```sh
-   export PROJECT_ID="my-project"
+3. Create a kube config file using the JSON key you generated - this guide might be helpful https://ahmet.im/blog/authenticating-to-gke-without-gcloud/
+
+4. Create a docker config file with the same JSON file by generating the auth with this command
+   ```SH
+   docker login -u _json_key --password-stdin https://gcr.io < account.json
    ```
 
-   Note this is your project _ID_, not the project _number_ or _name_.
+5. Create a JSON file for child repo or tag exceptions that you never want to be deleted under any circumstances.
+   It should be in the following format:
+   ```JSON
+   {
+    "repo": [
+      "child-repo"
+    ],
+    "tag": [
+      "another-child-repo:2019-12-31",
+      "another-child-repo:2019-11-25"
+    ]
+   }
+   ```
 
-1. Enable the Google APIs - this only needs to be done once per project:
-
-    ```sh
-    gcloud services enable --project "${PROJECT_ID}" \
-      appengine.googleapis.com \
-      cloudscheduler.googleapis.com \
-      run.googleapis.com
-    ```
-
-    This operation can take a few minutes, especially for recently-created
-    projects.
-
-1. Create a service account which will be assigned to the Cloud Run service:
-
-    ```sh
-    gcloud iam service-accounts create "gcr-cleaner" \
-      --project "${PROJECT_ID}" \
-      --display-name "gcr-cleaner"
-    ```
-
-1. Deploy the `gcr-cleaner` container on Cloud Run running as the service
-   account just created:
-
-    ```sh
-    gcloud --quiet run deploy "gcr-cleaner" \
-      --async \
-      --project ${PROJECT_ID} \
-      --platform "managed" \
-      --service-account "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --image "gcr.io/gcr-cleaner/gcr-cleaner" \
-      --region "us-central1" \
-      --timeout "60s"
-    ```
-
-1. Grant the service account access to delete references in Google Container
-   Registry (which stores container image laters in a Cloud Storage bucket):
-
-    ```sh
-    gsutil acl ch -u gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
-    ```
-
-    To cleanup refs in _other_ GCP projects, replace `PROJECT_ID` with the
-    target project ID. For example, if the Cloud Run service was running in
-    "project-a" and you wanted to grant it permission to cleanup refs in
-    "gcr.io/project-b/image", you would need to grant the Cloud Run service
-    account in project-a permission on `artifacts.projects-b.appspot.com`.
-
-1. Create a service account with permission to invoke the Cloud Run service:
-
-    ```sh
-    gcloud iam service-accounts create "gcr-cleaner-invoker" \
-      --project "${PROJECT_ID}" \
-      --display-name "gcr-cleaner-invoker"
-    ```
-
-    ```sh
-    gcloud run services add-iam-policy-binding "gcr-cleaner" \
-      --project "${PROJECT_ID}" \
-      --platform "managed" \
-      --region "us-central1" \
-      --member "serviceAccount:gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --role "roles/run.invoker"
-    ```
-
-1. Create a Cloud Scheduler HTTP job to invoke the function every week:
-
-    ```sh
-    gcloud app create \
-      --project "${PROJECT_ID}" \
-      --region "us-central" \
-      --quiet
-    ```
-
-    ```sh
-    # Replace this with the full name of the repository for which you
-    # want to cleanup old references.
-    export REPO="gcr.io/${PROJECT_ID}/my-image"
-    ```
-
-    ```sh
-    # Capture the URL of the Cloud Run service:
-    export SERVICE_URL=$(gcloud run services describe gcr-cleaner --project "${PROJECT_ID}" --platform "managed" --region "us-central1" --format 'value(status.url)')
-    ```
-
-    ```sh
-    gcloud scheduler jobs create http "gcrclean-myimage" \
-      --project ${PROJECT_ID} \
-      --description "Cleanup ${REPO}" \
-      --uri "${SERVICE_URL}/http" \
-      --message-body "{\"repo\":\"${REPO}\"}" \
-      --oidc-service-account-email "gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --schedule "every monday 09:00"
-    ```
-
-    You can create multiple Cloud Scheduler instances against the same Cloud Run
-    service with different payloads to clean multiple GCR repositories.
-
-1. _(Optional)_ Run the scheduled job now:
-
-    ```sh
-    gcloud scheduler jobs run "gcrclean-myimage" \
-      --project "${PROJECT_ID}"
-    ```
-
-    Note: for initial job deployments, you must wait a few minutes before
-    invoking.
-
-
-## Payload &amp; Parameters
-
-The payload is expected to be JSON with the following fields:
-
-- `repo` - Full name of the repository to clean, in the format
-  `gcr.io/project/repo`. This field is required.
-
-- `grace` - Relative duration in which to ignore references. This value is
-  specified as a time duration value like "5s" or "3h". If set, refs newer than
-  the duration will not be deleted. If unspecified, the default is no grace
-  period (all untagged image refs are deleted).
-
-- `allow_tagged` - If set to true, will check all images includding tagged.
-  If unspecified, the default will only delete untagged images.
-
-
-## FAQ
-
-**How do I clean up multiple Google Container Registry repos at once?**
-<br>
-To clean multiple repos, create a Cloud Scheduler job for each repo, altering
-the payload to use the correct repo.
-
-**Does it work with Cloud Pub/Sub?**
-<br>
-Yes! Just change the endpoint from `/http` to `/pubsub`!
+5. Deploy the GCR Cleaner as a cronjob in your Kubernetes cluster. Proper functionality requires the following:
+   - The JSON key file, the kube config file, the docker config file, and the exceptions json file must all be available on the pod.
+     This can be achieved by mounting them as secrets, or mounting a volume that contains them
+   - These environment variables must be defined:
+      `KUBECONFIG`: The path to your kube config file
+      `DOCKER_CONFIG`: The path to your docker config file
+      `GOOGLE_APPLICATION_CREDENTIALS`: The path to your service account JSON key
+      `GCR_BASE_REPO`: The name of your GCR repo in the format `gcr.io/{project}`
+   - These environment variables are optional:
+      `CLEANER_EXCEPTION_FILE`: The path to the exceptions JSON file (default is `/config/exceptions.json`)
+      `CLEANER_KEEP_AMOUNT`: The minimum amount of tags in each child repo that must be kept (default is 5)
 
 ## License
 
