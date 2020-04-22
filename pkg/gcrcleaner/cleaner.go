@@ -59,8 +59,8 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 }
 
 // Clean deletes old images from GCR that are untagged and older than "since".
-func (c *Cleaner) Clean() ([]string, error) {
-	var deleted []string
+func (c *Cleaner) Clean(dry bool) ([]string, error) {
+	var status []string
 	var errStrings []string
 
 	gcrbase, err := gcrname.NewRepository(repo)
@@ -73,10 +73,16 @@ func (c *Cleaner) Clean() ([]string, error) {
 		return nil, fmt.Errorf("failed to list child repos %s: %w", repo, err)
 	}
 
-	log.Printf("deleting refs for %s, keeping %d tags per image\n", repo, keep)
+	if dry {
+		log.Printf("performing dry run simulating clean for %s, with at least %d tags unflagged per repo\n", repo, keep)
+	} else {
+		log.Printf("deleting refs for %s, keeping at least %d tags per repo\n", repo, keep)
+	}
 
 	for _, r := range(repos.Children) {
 		name := fmt.Sprintf("%s/%s", repo, r)
+		size := int64(0)
+		del := 0
 
 		gcrrepo, err := gcrname.NewRepository(name)
 		if err != nil {
@@ -100,7 +106,11 @@ func (c *Cleaner) Clean() ([]string, error) {
 		var keeping = c.tagExcept
 		control := max(len(tags.Tags)-keep, 0)
 		if _, ok := c.repoExcept[name]; ok {
-			fmt.Printf("Only deleting untagged manifests for exception repo: %s\n", name)
+			if dry {
+				fmt.Printf("Only flagging untagged manifests for exception repo: %s\n", name)
+			} else {
+				fmt.Printf("Only deleting untagged manifests for exception repo: %s\n", name)
+			}
 			control = 0
 		}
 		for t := len(tags.Tags)-1; t >= control; t-- {
@@ -109,7 +119,11 @@ func (c *Cleaner) Clean() ([]string, error) {
 		}
 
 		for k, m := range tags.Manifests {
-			if c.shouldDelete(name, m, keeping) {
+			if c.shouldDelete(name, m, keeping, &size) {
+				if dry {
+					del += 1
+					continue
+				}
 				// Deletes all tags before deleting the image
 				for _, tag := range m.Tags {
 					tagged := name + ":" + tag
@@ -139,20 +153,27 @@ func (c *Cleaner) Clean() ([]string, error) {
 					}
 
 					deletedLock.Lock()
-					deleted = append(deleted, k)
+					del += 1
 					deletedLock.Unlock()
 				})
 			}
 		}
 
 		// Wait for everything to finish
-		pool.StopWait()
+		if !dry {
+			pool.StopWait()
 
-		// Aggregate any errors
-		if len(errs) > 0 {
-			for _, v := range errs {
-				errStrings = append(errStrings, v.Error())
+			// Aggregate any errors
+			if len(errs) > 0 {
+				for _, v := range errs {
+					errStrings = append(errStrings, v.Error())
+				}
 			}
+
+			// Add status update for child repo
+			status = append(status, fmt.Sprintf("%s: %d manifests kept, %d manifests deleted, remaining size %s", name, len(tags.Manifests)-del, del, getSize(size)))
+		} else {
+			status = append(status, fmt.Sprintf("%s: %d manifests would not flagged for deletion, %d manifests would be flagged for deletion, hypothetical remaining size %s", name, len(tags.Manifests)-del, del, getSize(size)))
 		}
 	}
 
@@ -164,7 +185,7 @@ func (c *Cleaner) Clean() ([]string, error) {
 		return nil, fmt.Errorf("%d errors occurred: %s",
 			len(errStrings), strings.Join(errStrings, ", "))
 	}
-	return deleted, nil
+	return status, nil
 }
 
 // deleteOne deletes a single repo ref using the supplied auth.
@@ -182,13 +203,13 @@ func (c *Cleaner) deleteOne(ref string) error {
 }
 
 // shouldDelete returns true if the manifest has no tags or isn't in use by images being kept
-func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[string]struct{}) bool {
+func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[string]struct{}, total *int64) bool {
 	if len(m.Tags) > 0 {
 		for _, t := range(m.Tags) {
 			name := fmt.Sprintf("%s:%s", n, t)
 			if _, ok := keeping[name]; ok {
 				// cannot delete manifest since it's used by images being kept
-				fmt.Printf("%s kept: %+v\n", n, m)
+				*total += int64(m.Size)
 				return false
 			}
 		}
@@ -245,4 +266,19 @@ func getenv(key, fallback string) string {
         return fallback
     }
     return value
+}
+
+// get human readable size
+func getSize(b int64) string {
+    const unit = 1000
+    if b < unit {
+        return fmt.Sprintf("%d B", b)
+    }
+    div, exp := int64(unit), 0
+    for n := b / unit; n >= unit; n /= unit {
+        div *= unit
+        exp++
+    }
+    return fmt.Sprintf("%.1f %cB",
+        float64(b)/float64(div), "kMGTPE"[exp])
 }

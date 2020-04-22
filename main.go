@@ -15,84 +15,20 @@
 package main
 
 import (
-	// "context"
+	"flag"
 	"io/ioutil"
 	"log"
-	// "net/http"
 	"os"
-	// "os/signal"
 	"runtime"
-	// "time"
 
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/farmersedgeinc/gcr-cleaner/pkg/gcrcleaner"
 )
 
-// func main() {
-// 	// Disable timestamps in go logs because stackdriver has them already.
-// 	log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
-
-// 	port := os.Getenv("PORT")
-// 	if port == "" {
-// 		port = "8080"
-// 	}
-// 	addr := "0.0.0.0:" + port
-
-// 	var auther gcrauthn.Authenticator
-// 	if token := os.Getenv("GCRCLEANER_TOKEN"); token != "" {
-// 		auther = &gcrauthn.Bearer{Token: token}
-// 	} else {
-// 		var err error
-// 		auther, err = gcrgoogle.NewEnvAuthenticator()
-// 		if err != nil {
-// 			log.Fatalf("failed to setup auther: %s", err)
-// 		}
-// 	}
-
-// 	concurrency := runtime.NumCPU()
-// 	cleaner, err := gcrcleaner.NewCleaner(auther, concurrency)
-// 	if err != nil {
-// 		log.Fatalf("failed to create cleaner: %s", err)
-// 	}
-
-// 	cleanerServer, err := gcrcleaner.NewServer(cleaner)
-// 	if err != nil {
-// 		log.Fatalf("failed to create server: %s", err)
-// 	}
-
-// 	cache := newTimerCache(30 * time.Minute)
-
-// 	mux := http.NewServeMux()
-// 	mux.Handle("/http", cleanerServer.HTTPHandler())
-// 	mux.Handle("/pubsub", cleanerServer.PubSubHandler(cache))
-
-// 	server := &http.Server{
-// 		Addr:    addr,
-// 		Handler: mux,
-// 	}
-
-// 	go func() {
-// 		log.Printf("server is listening on %s\n", port)
-// 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-// 			log.Fatalf("server exited: %s", err)
-// 		}
-// 	}()
-
-// 	signalCh := make(chan os.Signal, 1)
-// 	signal.Notify(signalCh, os.Interrupt)
-
-// 	<-signalCh
-
-// 	log.Printf("received stop, shutting down")
-// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 	defer cancel()
-
-// 	if err := server.Shutdown(ctx); err != nil {
-// 		log.Fatalf("failed to shutdown server: %s", err)
-// 	}
-// }
-
 func main() {
+	dry := flag.Bool("dry", false, "perform a dry run for testing")
+	flag.Parse()
+
 	jsonPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	jsonKey, err := ioutil.ReadFile(jsonPath)
 	auther := gcrgoogle.NewJSONKeyAuthenticator(string(jsonKey))
@@ -103,10 +39,19 @@ func main() {
 		log.Fatalf("failed to create cleaner: %s", err)
 	}
 
-	deleted, err := cleaner.Clean()
+	status, err := cleaner.Clean(*dry)
 	if err != nil {
 		log.Printf("failed to clean: %w", err)
+		return
 	}
 
-	log.Printf("deleted %d refs", len(deleted))
+	if *dry {
+		log.Printf("DRY RUN RESULTS:\n")
+		
+	} else {
+		log.Printf("GCR CLEANER RESULTS:\n")
+	}
+	for _, s := range status {
+    	log.Printf("%s\n", s)
+    }
 }
