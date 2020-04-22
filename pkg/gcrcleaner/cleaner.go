@@ -107,9 +107,9 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 		control := max(len(tags.Tags)-keep, 0)
 		if _, ok := c.repoExcept[name]; ok {
 			if dry {
-				fmt.Printf("Only flagging untagged manifests for exception repo: %s\n", name)
+				log.Printf("Only flagging untagged manifests for exception repo: %s\n", name)
 			} else {
-				fmt.Printf("Only deleting untagged manifests for exception repo: %s\n", name)
+				log.Printf("Only deleting untagged manifests for exception repo: %s\n", name)
 			}
 			control = 0
 		}
@@ -122,6 +122,11 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 			if c.shouldDelete(name, m, keeping, &size) {
 				if dry {
 					del += 1
+					delTags := ""
+					for _, t := range m.Tags {
+						str += fmt.Sprintf("%s, ", t)
+					}
+					log.Printf("%s would delete manifest %s with tags [ %s]", name, k, delTags)
 					continue
 				}
 				// Deletes all tags before deleting the image
@@ -168,21 +173,21 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 				for _, v := range errs {
 					errStrings = append(errStrings, v.Error())
 				}
+			} else {
+				// Add status update for child repo
+				status = append(status, fmt.Sprintf("%s: %d manifests deleted, %d manifests kept, remaining size %s", name, del, len(tags.Manifests)-del, getSize(size)))
 			}
-
-			// Add status update for child repo
-			status = append(status, fmt.Sprintf("%s: %d manifests kept, %d manifests deleted, remaining size %s", name, len(tags.Manifests)-del, del, getSize(size)))
 		} else {
-			status = append(status, fmt.Sprintf("%s: %d manifests would not flagged for deletion, %d manifests would be flagged for deletion, hypothetical remaining size %s", name, len(tags.Manifests)-del, del, getSize(size)))
+			status = append(status, fmt.Sprintf("%s: %d manifests would be deleted, %d manifests would be kept, would be remaining size %s", name, del, len(tags.Manifests)-del, getSize(size)))
 		}
 	}
 
 	if len(errStrings) > 0 {
 		if len(errStrings) == 1 {
-			return nil, fmt.Errorf(errStrings[0])
+			return status, fmt.Errorf(errStrings[0])
 		}
 
-		return nil, fmt.Errorf("%d errors occurred: %s",
+		return status, fmt.Errorf("%d errors occurred: %s",
 			len(errStrings), strings.Join(errStrings, ", "))
 	}
 	return status, nil
@@ -261,24 +266,24 @@ func max(x, y int) int {
 
 // get environment variables with default
 func getenv(key, fallback string) string {
-    value := os.Getenv(key)
-    if len(value) == 0 {
-        return fallback
-    }
-    return value
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		return fallback
+	}
+	return value
 }
 
 // get human readable size
 func getSize(b int64) string {
-    const unit = 1000
-    if b < unit {
-        return fmt.Sprintf("%d B", b)
-    }
-    div, exp := int64(unit), 0
-    for n := b / unit; n >= unit; n /= unit {
-        div *= unit
-        exp++
-    }
-    return fmt.Sprintf("%.1f %cB",
-        float64(b)/float64(div), "kMGTPE"[exp])
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB",
+		float64(b)/float64(div), "kMGTPE"[exp])
 }

@@ -16,6 +16,12 @@ base repo, keeps the last 5 tags (or however many you want) based on timestamp f
 if they are specified in the exceptions file. Everything else will be deleted, including untagged manifests.
 If the exceptions file specifies entire child repos those child repos will only have untagged manifests deleted and nothing else.
 
+## Dry Run
+
+Important to note is the dry run option for this program. If you want to see what would potentially happen in a standard run without
+risking your existing manifests, change the command in your CronJob resource to `/bin/gcrcleaner -dry`. This will output which manifests
+would be deleted for each child repo, how many would be kept, and how much space each repo would still use after cleaning.
+
 ## Setup
 
 1. Create a service account that has the `roles/storage.admin` (Storage Admin) role for the GCR bucket as well as
@@ -56,17 +62,9 @@ If the exceptions file specifies entire child repos those child repos will only 
    - These environment variables are optional:<br/>
       `CLEANER_EXCEPTION_FILE`: The path to the exceptions JSON file (default is `/config/exceptions.json`)<br/>
       `CLEANER_KEEP_AMOUNT`: The minimum amount of tags in each child repo that must be kept (default is 5)<br/>
+  The default command for this image is `/bin/gcrcleaner`. To use the dry run, change it to `/bin/gcrcleaner -dry`.
 
 ## License
 
 This library is licensed under Apache 2.0. Full license text is available in
 [LICENSE](https://github.com/farmersedgeinc/gcr-cleaner/tree/master/LICENSE).
-
-[cloud-build]: https://cloud.google.com/build/
-[cloud-pubsub]: https://cloud.google.com/pubsub/
-[cloud-run]: https://cloud.google.com/run/
-[cloud-scheduler]: https://cloud.google.com/scheduler/
-[cloud-shell]: https://cloud.google.com/shell
-[cloud-sdk]: https://cloud.google.com/sdk
-[gcrgc.sh]: https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7
-[gcr-cleaner-godoc]: https://godoc.org/github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner

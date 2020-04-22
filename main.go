@@ -42,16 +42,19 @@ func main() {
 	status, err := cleaner.Clean(*dry)
 	if err != nil {
 		log.Printf("failed to clean: %w", err)
-		return
 	}
 
-	if *dry {
-		log.Printf("DRY RUN RESULTS:\n")
-		
-	} else {
-		log.Printf("GCR CLEANER RESULTS:\n")
+	if len(status) > 0 {
+		if *dry {
+			log.Printf("\nDRY RUN RESULTS:\n")
+			
+		} else {
+			log.Printf("\nGCR CLEANER RESULTS:\n")
+		}
+		message = ""
+		for _, s := range status {
+			message += log.Sprintf("%s\n", s)
+		}
+		log.Printf(message)
 	}
-	for _, s := range status {
-    	log.Printf("%s\n", s)
-    }
 }
