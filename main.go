@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -51,9 +52,9 @@ func main() {
 		} else {
 			log.Printf("\nGCR CLEANER RESULTS:\n")
 		}
-		message = ""
+		message := ""
 		for _, s := range status {
-			message += log.Sprintf("%s\n", s)
+			message += fmt.Sprintf("%s\n", s)
 		}
 		log.Printf(message)
 	}

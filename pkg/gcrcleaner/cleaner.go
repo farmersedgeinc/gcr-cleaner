@@ -124,7 +124,7 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 					del += 1
 					delTags := ""
 					for _, t := range m.Tags {
-						str += fmt.Sprintf("%s, ", t)
+						delTags += fmt.Sprintf("%s, ", t)
 					}
 					log.Printf("%s would delete manifest %s with tags [ %s]", name, k, delTags)
 					continue

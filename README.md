@@ -2,7 +2,7 @@
 
 This project is a fork of https://github.com/sethvargo/gcr-cleaner, so massive thanks to them for making a great repo!
 
-GCR Cleaner deletes untagged images in Google Container Registry. This can help
+GCR Cleaner deletes tagged and untagged images in Google Container Registry. This can help
 reduce costs and keep your container images list in order.
 
 This version of GCR Cleaner is designed to be run as a cronjob in GKE Kubernetes environments
