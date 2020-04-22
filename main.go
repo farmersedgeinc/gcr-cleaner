@@ -47,10 +47,10 @@ func main() {
 
 	if len(status) > 0 {
 		if *dry {
-			log.Printf("\nDRY RUN RESULTS:\n")
+			log.Printf("DRY RUN RESULTS:")
 			
 		} else {
-			log.Printf("\nGCR CLEANER RESULTS:\n")
+			log.Printf("GCR CLEANER RESULTS:")
 		}
 		message := ""
 		for _, s := range status {

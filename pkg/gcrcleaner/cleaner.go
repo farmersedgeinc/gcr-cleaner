@@ -107,9 +107,9 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 		control := max(len(tags.Tags)-keep, 0)
 		if _, ok := c.repoExcept[name]; ok {
 			if dry {
-				log.Printf("Only flagging untagged manifests for exception repo: %s\n", name)
+				log.Printf("Only flagging untagged manifests for exception repo: %s", name)
 			} else {
-				log.Printf("Only deleting untagged manifests for exception repo: %s\n", name)
+				log.Printf("Only deleting untagged manifests for exception repo: %s", name)
 			}
 			control = 0
 		}
@@ -122,11 +122,7 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 			if c.shouldDelete(name, m, keeping, &size) {
 				if dry {
 					del += 1
-					delTags := ""
-					for _, t := range m.Tags {
-						delTags += fmt.Sprintf("%s, ", t)
-					}
-					log.Printf("%s would delete manifest %s with tags [ %s]", name, k, delTags)
+					log.Printf("%s would delete manifest %s: %+v", name, k, m)
 					continue
 				}
 				// Deletes all tags before deleting the image
@@ -219,7 +215,6 @@ func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[s
 			}
 		}
 	}
-	fmt.Printf("%s deleted: %+v\n", n, m)
 	return true
 }
 
@@ -233,7 +228,7 @@ func fetchExceptions() (map[string]struct{}, map[string]struct{}) {
 	  { kubectl --context $ctx get cj --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get job --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get po --all-namespaces -o jsonpath="{..image}"; }
 	done |  tr -s '[[:space:]]' ',' | sort |  uniq;`).Output()
 	if err != nil {
-		log.Fatalf(fmt.Sprintf("failed to retrieve in-use images across clusters:\n%s", err.Error()))
+		log.Fatalf(fmt.Sprintf("failed to retrieve in-use images across clusters: %s", err.Error()))
 	} else {
 		tags := strings.SplitAfter(string(out), ",")
 		for _, tag := range tags {

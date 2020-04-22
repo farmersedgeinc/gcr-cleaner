@@ -12,8 +12,8 @@ for deletion.
 
 The deletion itself works by first querying all of the clusters in a provided kube config for all pod, cronjob, and job
 resources and checking which tags are being used by all of them. It then goes through all child repos of the provided
-base repo, keeps the last 5 tags (or however many you want) based on tag name in ascending order (will delete the lowest in
-ascending string order) for each then keeps additional tags if they are specified in the exceptions file. Everything else will
+base repo, keeps the last 5 tags (or however many you want) *based on tag name in ascending order (will delete the lowest in
+ascending string order)* for each then keeps additional tags if they are specified in the exceptions file. Everything else will
 be deleted, including untagged manifests. If the exceptions file specifies entire child repos those child repos will only have
 untagged manifests deleted and nothing else.
 
