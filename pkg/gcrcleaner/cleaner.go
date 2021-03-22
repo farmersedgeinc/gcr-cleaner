@@ -36,25 +36,26 @@ import (
 var keep, _ = strconv.Atoi(getenv("CLEANER_KEEP_AMOUNT", "5"))
 var	repo = getenv("GCR_BASE_REPO", "")
 var	exPath = getenv("CLEANER_EXCEPTION_FILE", "/config/exceptions.json")
-var exists = struct{}{} // for implementing set-like functionality
 
 // Cleaner is a gcr cleaner.
 type Cleaner struct {
-	auther      gcrauthn.Authenticator
-	concurrency int
-	repoExcept  map[string]struct{}
-	tagExcept   map[string]struct{}
+	auther          gcrauthn.Authenticator
+	concurrency     int
+	repoExcept      map[string]bool
+	tagExcept       map[string]bool
+	globalTagExcept map[string]bool
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
 func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
-	repoExcept, tagExcept := fetchExceptions()
+	repoExcept, tagExcept, globalTagExcept := fetchExceptions()
 	return &Cleaner{
-		auther:      auther,
-		concurrency: c,
-		repoExcept:  repoExcept,
-		tagExcept:   tagExcept,
+		auther:          auther,
+		concurrency:     c,
+		repoExcept:      repoExcept,
+		tagExcept:       tagExcept,
+		globalTagExcept: globalTagExcept,
 	}, nil
 }
 
@@ -86,13 +87,13 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 
 		gcrrepo, err := gcrname.NewRepository(name)
 		if err != nil {
-			errStrings = append(errStrings, fmt.Sprintf("failed to get child repo %s: %w", repo, err.Error()))
+			errStrings = append(errStrings, fmt.Sprintf("failed to get child repo %s: %w", name, err.Error()))
 			continue
 		}
 
 		tags, err := gcrgoogle.List(gcrrepo, gcrgoogle.WithAuth(c.auther))
 		if err != nil {
-			errStrings = append(errStrings, fmt.Sprintf("failed to list tags for child repo %s: %w", repo, err.Error()))
+			errStrings = append(errStrings, fmt.Sprintf("failed to list tags for child repo %s: %w", name, err.Error()))
 			continue
 		}
 
@@ -105,7 +106,7 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 
 		var keeping = c.tagExcept
 		control := max(len(tags.Tags)-keep, 0)
-		if _, ok := c.repoExcept[name]; ok {
+		if c.repoExcept[name] {
 			if dry {
 				log.Printf("Only flagging untagged manifests for exception repo: %s", name)
 			} else {
@@ -115,7 +116,11 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 		}
 		for t := len(tags.Tags)-1; t >= control; t-- {
 			tagName := fmt.Sprintf("%s:%s", name, tags.Tags[t])
-			keeping[tagName] = exists
+			if c.globalTagExcept[tags.Tags[t]] || c.tagExcept[tagName] {
+				//If it's a tag exception we want to keep it but not count it towards the total
+				control = max(control-1, 0)
+			}
+			keeping[tagName] = true
 		}
 
 		for k, m := range tags.Manifests {
@@ -204,11 +209,11 @@ func (c *Cleaner) deleteOne(ref string) error {
 }
 
 // shouldDelete returns true if the manifest has no tags or isn't in use by images being kept
-func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[string]struct{}, total *int64) bool {
+func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[string]bool, total *int64) bool {
 	if len(m.Tags) > 0 {
 		for _, t := range(m.Tags) {
 			name := fmt.Sprintf("%s:%s", n, t)
-			if _, ok := keeping[name]; ok {
+			if keeping[name] {
 				// cannot delete manifest since it's used by images being kept
 				*total += int64(m.Size)
 				return false
@@ -219,9 +224,10 @@ func (c *Cleaner) shouldDelete(n string, m gcrgoogle.ManifestInfo, keeping map[s
 }
 
 // fetches in-use tags across all clusters in kube config
-func fetchExceptions() (map[string]struct{}, map[string]struct{}) {
-	repoExceptions := make(map[string]struct{})
-	tagExceptions := make(map[string]struct{})
+func fetchExceptions() (map[string]bool, map[string]bool, map[string]bool) {
+	repoExceptions := make(map[string]bool)
+	tagExceptions := make(map[string]bool)
+	globalTagExceptions := make(map[string]bool)
 
 	out, err := exec.Command("/bin/bash", "-c", `for ctx in $(kubectl config get-contexts -o name)
 	do
@@ -232,7 +238,7 @@ func fetchExceptions() (map[string]struct{}, map[string]struct{}) {
 	} else {
 		tags := strings.SplitAfter(string(out), ",")
 		for _, tag := range tags {
-			tagExceptions[tag] = exists
+			tagExceptions[tag] = true
 		}
 	}
 
@@ -241,14 +247,17 @@ func fetchExceptions() (map[string]struct{}, map[string]struct{}) {
 	json.Unmarshal([]byte(exFile), &result)
 	for _, r := range(result["repo"]) {
 		name := fmt.Sprintf("%s/%s", repo, r)
-		repoExceptions[name] = exists
+		repoExceptions[name] = true
 	}
 	for _, t := range(result["tag"]) {
 		name := fmt.Sprintf("%s/%s", repo, t)
-		tagExceptions[name] = exists
+		tagExceptions[name] = true
+	}
+	for _, t := range(result["globalTag"]) {
+		globalTagExceptions[t] = true
 	}
 
-	return repoExceptions, tagExceptions
+	return repoExceptions, tagExceptions, globalTagExceptions
 }
 
 // for repos with size less than or equal to keep amount

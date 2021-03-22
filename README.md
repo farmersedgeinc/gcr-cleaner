@@ -48,6 +48,9 @@ would be deleted for each child repo, how many would be kept, and how much space
     "tag": [
       "another-child-repo:2019-12-31",
       "another-child-repo:2019-11-25"
+    ],
+    "globalTag": [
+      "latest"
     ]
    }
    ```
