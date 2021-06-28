@@ -75,9 +75,9 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 	}
 
 	if dry {
-		log.Printf("performing dry run simulating clean for %s, with at least %d tags unflagged per repo\n", repo, keep)
+		log.Printf("Performing dry run simulating clean for %s, with at least %d tags unflagged per repo\n", repo, keep)
 	} else {
-		log.Printf("deleting refs for %s, keeping at least %d tags per repo\n", repo, keep)
+		log.Printf("Deleting refs for %s, keeping at least %d tags per repo\n", repo, keep)
 	}
 
 	for _, r := range(repos.Children) {
@@ -87,13 +87,13 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 
 		gcrrepo, err := gcrname.NewRepository(name)
 		if err != nil {
-			errStrings = append(errStrings, fmt.Sprintf("failed to get child repo %s: %w", name, err.Error()))
+			errStrings = append(errStrings, fmt.Sprintf("Failed to get child repo %s: %w", name, err.Error()))
 			continue
 		}
 
 		tags, err := gcrgoogle.List(gcrrepo, gcrgoogle.WithAuth(c.auther))
 		if err != nil {
-			errStrings = append(errStrings, fmt.Sprintf("failed to list tags for child repo %s: %w", name, err.Error()))
+			errStrings = append(errStrings, fmt.Sprintf("Failed to list tags for child repo %s: %w", name, err.Error()))
 			continue
 		}
 
@@ -198,11 +198,11 @@ func (c *Cleaner) Clean(dry bool) ([]string, error) {
 func (c *Cleaner) deleteOne(ref string) error {
 	name, err := gcrname.ParseReference(ref)
 	if err != nil {
-		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
+		return fmt.Errorf("Failed to parse reference %s: %w", ref, err)
 	}
 
 	if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
-		return fmt.Errorf("failed to delete %s: %w", name, err)
+		return fmt.Errorf("Failed to delete %s: %w", name, err)
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func fetchExceptions() (map[string]bool, map[string]bool, map[string]bool) {
 	  { kubectl --context $ctx get cj --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get job --all-namespaces -o jsonpath="{..image}" & kubectl --context $ctx get po --all-namespaces -o jsonpath="{..image}"; }
 	done |  tr -s '[[:space:]]' ',' | sort |  uniq;`).Output()
 	if err != nil {
-		log.Fatalf(fmt.Sprintf("failed to retrieve in-use images across clusters: %s", err.Error()))
+		log.Fatalf(fmt.Sprintf("Failed to retrieve in-use images across clusters: %s", err.Error()))
 	} else {
 		tags := strings.SplitAfter(string(out), ",")
 		for _, tag := range tags {
@@ -244,7 +244,10 @@ func fetchExceptions() (map[string]bool, map[string]bool, map[string]bool) {
 
 	exFile, _ := ioutil.ReadFile(exPath)
 	result := make(map[string][]string)
-	json.Unmarshal([]byte(exFile), &result)
+	err := json.Unmarshal([]byte(exFile), &result)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("Failed to parse JSON exceptions file: %s", err.Error()))
+	}
 	for _, r := range(result["repo"]) {
 		name := fmt.Sprintf("%s/%s", repo, r)
 		repoExceptions[name] = true
