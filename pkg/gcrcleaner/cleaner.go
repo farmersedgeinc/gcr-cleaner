@@ -244,9 +244,9 @@ func fetchExceptions() (map[string]bool, map[string]bool, map[string]bool) {
 
 	exFile, _ := ioutil.ReadFile(exPath)
 	result := make(map[string][]string)
-	err := json.Unmarshal([]byte(exFile), &result)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("Failed to parse JSON exceptions file: %s", err.Error()))
+	parseErr := json.Unmarshal([]byte(exFile), &result)
+	if parseErr != nil {
+		log.Fatalf(fmt.Sprintf("Failed to parse JSON exceptions file: %s", parseErr.Error()))
 	}
 	for _, r := range(result["repo"]) {
 		name := fmt.Sprintf("%s/%s", repo, r)
